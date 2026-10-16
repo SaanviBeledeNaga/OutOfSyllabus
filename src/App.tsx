@@ -5,7 +5,8 @@ import { stories, type Story } from './data/stories'
 import { cofounders, type Cofounder } from './data/cofounders'
 
 const videoUrl = 'https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260328_083109_283f3553-e28f-428b-a723-d639c617eb2b.mp4'
-const contactEmail = 'hello@outofsyllabus.in'
+export const START_OFFSET = 0.15
+const contactEmail = 'outofsyllabus.hello@gmail.com'
 
 function Brand() {
   return <Link to="/" aria-label="OutOfSyllabus home" className="brand">OutOfSyllabus<sup>®</sup></Link>
@@ -31,8 +32,7 @@ function Header() {
 
 function HeroVideo() {
   const videoRef = useRef<HTMLVideoElement>(null)
-  const [reducedMotion, setReducedMotion] = useState(false)
-  const [posterVisible, setPosterVisible] = useState(true)
+  const [reducedMotion, setReducedMotion] = useState(() => window.matchMedia('(prefers-reduced-motion: reduce)').matches)
 
   useEffect(() => {
     const media = window.matchMedia('(prefers-reduced-motion: reduce)')
@@ -46,18 +46,66 @@ function HeroVideo() {
     const video = videoRef.current
     if (!video || reducedMotion) {
       video?.pause()
+      if (video) video.style.opacity = '0'
       return
     }
     let frame = 0
+    let fallbackFrame = 0
     let restartTimer = 0
+    let videoFrame = 0
     let mounted = true
-    const play = () => { void video.play().catch(() => undefined) }
+    let readyToShow = false
+    let fadeStart = 0
+    let waitingForSeek = false
+    let fallbackPlayingListener: (() => void) | null = null
+    const videoWithFrameCallback = video as HTMLVideoElement & {
+      requestVideoFrameCallback?: (callback: () => void) => number
+      cancelVideoFrameCallback?: (handle: number) => void
+    }
+    const revealAfterFrame = () => {
+      if (!mounted) return
+      const show = () => {
+        if (!mounted) return
+        readyToShow = true
+        fadeStart = video.currentTime
+      }
+      if (videoWithFrameCallback.requestVideoFrameCallback) {
+        videoFrame = videoWithFrameCallback.requestVideoFrameCallback(show)
+      }
+    }
+    const playAfterSeek = () => {
+      if (!mounted) return
+      waitingForSeek = false
+      if (!videoWithFrameCallback.requestVideoFrameCallback) {
+        fallbackPlayingListener = () => { fallbackFrame = requestAnimationFrame(() => {
+          if (mounted) {
+            readyToShow = true
+            fadeStart = video.currentTime
+          }
+        }) }
+        video.addEventListener('playing', fallbackPlayingListener, { once: true })
+      }
+      void video.play().then(revealAfterFrame).catch(() => undefined)
+    }
+    const seekToStart = () => {
+      if (!mounted || waitingForSeek) return
+      readyToShow = false
+      video.style.opacity = '0'
+      waitingForSeek = true
+      if (Math.abs(video.currentTime - START_OFFSET) < 0.01) {
+        playAfterSeek()
+      } else {
+        video.addEventListener('seeked', playAfterSeek, { once: true })
+        video.currentTime = START_OFFSET
+      }
+    }
+    const loaded = () => seekToStart()
     const monitor = () => {
       if (!mounted) return
       const duration = video.duration
-      if (Number.isFinite(duration) && duration > 0) {
+      if (readyToShow && Number.isFinite(duration) && duration > 0) {
         const remaining = duration - video.currentTime
-        const fade = Math.min(1, video.currentTime / 0.5, remaining / 0.5)
+        const fade = Math.min(1, Math.max(0, (video.currentTime - fadeStart) / 0.5), Math.max(0, remaining / 0.5))
         video.style.opacity = String(Math.max(0, fade))
       }
       frame = requestAnimationFrame(monitor)
@@ -67,25 +115,31 @@ function HeroVideo() {
       window.clearTimeout(restartTimer)
       restartTimer = window.setTimeout(() => {
         if (!mounted) return
-        video.currentTime = 0
-        play()
+        seekToStart()
       }, 100)
     }
+    // Keep every pre-rendered frame hidden; revealing only a decoded playback frame prevents the startup flash.
+    video.style.opacity = '0'
+    video.addEventListener('loadeddata', loaded)
     video.addEventListener('ended', ended)
     frame = requestAnimationFrame(monitor)
-    play()
+    if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) loaded()
     return () => {
       mounted = false
       cancelAnimationFrame(frame)
+      cancelAnimationFrame(fallbackFrame)
+      if (videoFrame && videoWithFrameCallback.cancelVideoFrameCallback) videoWithFrameCallback.cancelVideoFrameCallback(videoFrame)
       window.clearTimeout(restartTimer)
+      video.removeEventListener('loadeddata', loaded)
       video.removeEventListener('ended', ended)
+      video.removeEventListener('seeked', playAfterSeek)
+      if (fallbackPlayingListener) video.removeEventListener('playing', fallbackPlayingListener)
       video.pause()
     }
   }, [reducedMotion])
 
   return <div className="hero-media" aria-hidden="true">
-    <img className={`hero-poster ${posterVisible ? '' : 'poster-hidden'}`} src="https://images.unsplash.com/photo-1470770841072-f978cf4d019e?auto=format&fit=crop&w=2400&q=85" alt="" />
-    {!reducedMotion && <video ref={videoRef} className="hero-video" src={videoUrl} muted playsInline preload="metadata" onLoadedData={() => setPosterVisible(false)} />}
+    <video ref={videoRef} className="hero-video" src={videoUrl} muted playsInline preload="auto" autoPlay={false} />
     <div className="video-overlay" />
   </div>
 }
@@ -120,7 +174,20 @@ type ContactValues = Record<ContactFields, string>
 const emptyContactValues: ContactValues = { name: '', email: '', message: '' }
 
 async function sendContactMessage(_values: ContactValues): Promise<void> {
-  // TODO: Connect this stub to Formspree or EmailJS.
+  const endpoint = import.meta.env.VITE_FORM_ENDPOINT
+  if (!endpoint) {
+    const subject = encodeURIComponent(`Message from ${_values.name.trim()}`)
+    const body = encodeURIComponent(`${_values.message.trim()}\n\nFrom: ${_values.name.trim()} <${_values.email.trim()}>`)
+    window.location.href = `mailto:${contactEmail}?subject=${subject}&body=${body}`
+    throw new Error('Email app opened')
+  }
+  const payload = new FormData()
+  payload.set('name', _values.name.trim())
+  payload.set('email', _values.email.trim())
+  payload.set('_replyto', _values.email.trim())
+  payload.set('message', _values.message.trim())
+  const response = await fetch(endpoint, { method: 'POST', headers: { Accept: 'application/json' }, body: payload })
+  if (!response.ok) throw new Error('Contact form request failed')
 }
 
 function ContactSection() {
@@ -128,6 +195,8 @@ function ContactSection() {
   const [touched, setTouched] = useState<Record<ContactFields, boolean>>({ name: false, email: false, message: false })
   const [submitted, setSubmitted] = useState(false)
   const [sent, setSent] = useState(false)
+  const [sendError, setSendError] = useState(false)
+  const [copied, setCopied] = useState(false)
   const errors: ContactValues = {
     name: values.name.trim() ? '' : 'Please enter your name.',
     email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email.trim()) ? '' : 'Enter a valid email address.',
@@ -137,6 +206,7 @@ function ContactSection() {
   const update = (field: ContactFields, value: string) => {
     setValues(current => ({ ...current, [field]: value }))
     setSent(false)
+    setSendError(false)
   }
   const showError = (field: ContactFields) => (touched[field] || submitted) ? errors[field] : ''
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -144,24 +214,45 @@ function ContactSection() {
     setSubmitted(true)
     setTouched({ name: true, email: true, message: true })
     if (Object.values(errors).some(Boolean)) return
-    await sendContactMessage(values)
-    setSent(true)
-    setValues(emptyContactValues)
-    setTouched({ name: false, email: false, message: false })
-    setSubmitted(false)
+    try {
+      await sendContactMessage(values)
+      setSent(true)
+      setSendError(false)
+      setValues(emptyContactValues)
+      setTouched({ name: false, email: false, message: false })
+      setSubmitted(false)
+    } catch {
+      if (import.meta.env.VITE_FORM_ENDPOINT) setSendError(true)
+    }
   }
 
-  return <section className="section contact-section" id="contact">
-    <h2 className="section-title">Get in touch</h2>
-    <p className="contact-intro">Have a story to share or a question for us? Write to us.</p>
-    <div className="contact-layout">
-      <form className="contact-form" onSubmit={handleSubmit} noValidate>
+  const copyEmail = async () => {
+    try {
+      await navigator.clipboard.writeText(contactEmail)
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 2000)
+    } catch { setCopied(false) }
+  }
+
+  return <section className="section community-section">
+    <div className="community-grid">
+      <div className="community-cofounders" id="cofounders">
+        <h2 className="section-title">Meet the co-founders</h2>
+        <div className="cofounders-grid">{cofounders.map(person => <CofounderCard key={person.id} person={person} />)}</div>
+      </div>
+      <div className="community-contact" id="contact">
+        <h2 className="section-title">Get in touch</h2>
+        <p className="contact-intro">Have a story to share or a question for us? Write to us.</p>
+        <div className="contact-layout">
+          <form className="contact-form" onSubmit={handleSubmit} noValidate>
         <div className="form-field"><label htmlFor="contact-name">Name</label><input id="contact-name" name="name" autoComplete="name" required value={values.name} onChange={event => update('name', event.target.value)} onBlur={() => setTouched(current => ({ ...current, name: true }))} aria-invalid={!!showError('name')} aria-describedby={showError('name') ? 'contact-name-error' : undefined} />{showError('name') && <span className="field-error" id="contact-name-error">{showError('name')}</span>}</div>
         <div className="form-field"><label htmlFor="contact-email">Email</label><input id="contact-email" name="email" type="email" autoComplete="email" required value={values.email} onChange={event => update('email', event.target.value)} onBlur={() => setTouched(current => ({ ...current, email: true }))} aria-invalid={!!showError('email')} aria-describedby={showError('email') ? 'contact-email-error' : undefined} />{showError('email') && <span className="field-error" id="contact-email-error">{showError('email')}</span>}</div>
         <div className="form-field"><label htmlFor="contact-message">Message</label><textarea id="contact-message" name="message" rows={5} required value={values.message} onChange={event => update('message', event.target.value)} onBlur={() => setTouched(current => ({ ...current, message: true }))} aria-invalid={!!showError('message')} aria-describedby={showError('message') ? 'contact-message-error' : undefined} />{showError('message') && <span className="field-error" id="contact-message-error">{showError('message')}</span>}</div>
-        <div className="form-submit-row"><button type="submit" className="button">Send message <ArrowRight size={16} /></button>{sent && <span className="form-success" role="status">Message sent</span>}</div>
-      </form>
-      <aside className="contact-details"><span className="section-index">SAY HELLO</span><a className="contact-email" href={`mailto:${contactEmail}`}>{contactEmail}</a><div className="contact-socials"><a href="https://www.instagram.com/" target="_blank" rel="noreferrer">Instagram <ArrowUpRight size={14} /></a><a href="https://www.linkedin.com/" target="_blank" rel="noreferrer">LinkedIn <ArrowUpRight size={14} /></a></div></aside>
+            <div className="form-submit-row"><button type="submit" className="button">Send message <ArrowRight size={16} /></button>{sent && <span className="form-success" role="status">Message sent</span>}{sendError && <span className="form-error" role="alert">Something went wrong. Email us directly.</span>}</div>
+          </form>
+          <aside className="contact-details"><span className="section-index">SAY HELLO</span><div className="email-copy-row"><a className="contact-email" href={`mailto:${contactEmail}`}>{contactEmail}</a><button className="copy-email" type="button" onClick={copyEmail} aria-live="polite">{copied ? 'Copied' : 'Copy'}</button></div><div className="contact-socials"><a href="https://www.instagram.com/" target="_blank" rel="noreferrer">Instagram <ArrowUpRight size={14} /></a><a href="https://www.linkedin.com/" target="_blank" rel="noreferrer">LinkedIn <ArrowUpRight size={14} /></a></div></aside>
+        </div>
+      </div>
     </div>
   </section>
 }
@@ -189,11 +280,6 @@ function HomePage() {
       <section className="section stories-section" id="stories">
         <h2 className="section-title">Stories worth staying for</h2>
         <div className="featured-grid">{featured.map(story => <StoryCard key={story.slug} story={story} />)}</div>
-      </section>
-
-      <section className="section cofounders-section" id="cofounders">
-        <h2 className="section-title">Meet the co-founders</h2>
-        <div className="cofounders-grid">{cofounders.map(person => <CofounderCard key={person.id} person={person} />)}</div>
       </section>
 
       <ContactSection />
@@ -228,4 +314,3 @@ function StoryPage() {
 export default function App() {
   return <Routes><Route path="/" element={<HomePage />} /><Route path="/stories/:slug" element={<StoryPage />} /></Routes>
 }
-

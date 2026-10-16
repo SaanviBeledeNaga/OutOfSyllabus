@@ -23,5 +23,11 @@ export const cofounders: Cofounder[] = [
     bio: 'Add a short introduction about their journey and what they’re building here.',
     photo: '/images/cofounders/cofounder-two.jpg', // TODO: replace with a real co-founder photo.
   },
+  {
+    id: 'cofounder-three',
+    name: 'Co-founder Three',
+    role: 'Co-founder',
+    bio: 'Add a short introduction about their journey and what they’re building here.',
+    photo: '/images/cofounders/cofounder-three.jpg', // TODO: replace with a real co-founder photo.
+  },
 ]
-
