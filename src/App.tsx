@@ -268,7 +268,6 @@ function HomePage() {
       <HeroVideo />
       <Header />
       <div className="hero-content">
-        <span className="hero-kicker animate-fade-rise">FIELD NOTES FROM THE JOURNEY</span>
         <h1 className="animate-fade-rise">Behind every offer letter<br className="desktop-break" /> is a <em>messy middle.</em></h1>
         <p className="hero-description animate-fade-rise-delay">Real students. Real timelines. The rejections, the resources, and the month-by-month steps behind every success.</p>
         <a href="#stories" className="button hero-cta animate-fade-rise-delay-2">Read Stories <ArrowDown size={16} /></a>
