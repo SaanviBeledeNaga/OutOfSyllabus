@@ -31,7 +31,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .hero-kicker { display: block; margin-bottom: 28px; color: #6F6F6F; }
 .hero-content h1 { max-width: 1180px; margin: 0 auto; font: 400 clamp(60px, 8.4vw, 116px)/.88 'Instrument Serif', Georgia, serif; letter-spacing: -3.6px; }
 .hero-content h1 em, .section-heading h2 em, .submit-strip h2 em { color: #6F6F6F; font-weight: 400; }
-.hero-description { color: #6F6F6F; max-width: 530px; margin: 29px auto 0; font-size: 15px; line-height: 1.85; }
+.hero-description { color: #000; max-width: 530px; margin: 29px auto 0; font-size: 15px; line-height: 1.85; }
 .hero-cta { margin-top: 34px; min-width: 194px; padding: 17px 28px; }
 .hero-bottom { position: absolute; z-index: 2; bottom: 25px; left: 48px; right: 48px; display: flex; justify-content: space-between; color: #6F6F6F; font-size: 8px; letter-spacing: 1.5px; }.hero-bottom span:last-child { display: inline-flex; align-items: center; gap: 8px; }
 .section { max-width: 1280px; padding: 96px 32px; margin: 0 auto; background: #fff; scroll-margin-top: 24px; }
