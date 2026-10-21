@@ -16,7 +16,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .hero-poster, .hero-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 49%; }
 .hero-poster { filter: saturate(.68); transition: opacity .3s ease; }.poster-hidden { opacity: 0; }
 .hero-video { opacity: 0; transition: opacity .15s linear; }
-.video-overlay { position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(255,255,255,.84) 0%, rgba(255,255,255,.76) 8%, rgba(255,255,255,.22) 42%, rgba(255,255,255,.22) 75%, rgba(255,255,255,.92) 100%); }
+.video-overlay { position: absolute; inset: 0; background: linear-gradient(to bottom, #fff 0%, rgba(255,255,255,.96) 5%, rgba(255,255,255,.76) 14%, rgba(255,255,255,.22) 38%, rgba(255,255,255,.22) 68%, rgba(255,255,255,.65) 84%, rgba(255,255,255,.96) 96%, #fff 100%); }
 .site-header { position: relative; z-index: 10; width: 100%; background: #fff; }
 .hero-shell .site-header { background: transparent; }
 .nav-inner { max-width: 1440px; margin: 0 auto; padding: 24px 48px; min-height: 84px; display: flex; justify-content: space-between; align-items: center; }
