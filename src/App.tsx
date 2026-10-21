@@ -273,7 +273,7 @@ function HomePage() {
         <p className="hero-description animate-fade-rise-delay">Real students. Real timelines. The rejections, the resources, and the month-by-month steps behind every success.</p>
         <a href="#stories" className="button hero-cta animate-fade-rise-delay-2">Read Stories <ArrowDown size={16} /></a>
       </div>
-      <div className="hero-bottom"><span>HONEST JOURNEYS, INDIAN ENGINEERING</span><span>SCROLL TO EXPLORE <ArrowDown size={13} /></span></div>
+      <div className="hero-bottom"><span className="ml-auto">SCROLL TO EXPLORE <ArrowDown size={13} /></span></div>
     </section>
 
     <main>
